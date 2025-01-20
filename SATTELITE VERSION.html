@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Davao City Crime Rate Visualization</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #121212; /* Dark background */
+            color: #ffffff; /* Light text color */
+        }
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+        .controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(30, 30, 30, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            z-index: 1000; /* Ensure controls are above the map */
+        }
+        .controls h3 {
+            margin-top: 0;
+            color: #ffffff; /* White title color */
+        }
+        .legend {
+            background: rgba(30, 30, 30, 0.9);
+            line-height: 18px;
+            color: #ffffff;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        #chartContainer {
+            width: 100%;
+            height: 300px;
+            margin-top: 20px;
+        }
+        .footer {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(30, 30, 30, 0.9);
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        button {
+            background-color: #007BFF; /* Bootstrap primary color */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            cursor: pointer;
+            transition: background-color .3s ease; /* Smooth transition */
+        }
+        button:hover {
+            background-color: #0056b3; /* Darker shade on hover */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <h3>Filter Crime Data</h3>
+        <label for="crimeType">Crime Type:</label>
+        <select id="crimeType">
+            <option value="all">All</option>
+            <option value="theft">Theft</option>
+            <option value="assault">Assault</option>
+            <option value="burglary">Burglary</option>
+            <option value="vandalism">Vandalism</option>
+            <option value="drug_offense">Drug Offense</option>
+        </select>
+
+        <label for="severity">Severity:</label>
+        <select id="severity">
+            <option value="all">All</option>
+            <option value="minor">Minor</option>
+            <option value="major">Major</option>
+        </select>
+
+        <label for="dateRange">Date Range:</label>
+        <input type="date" id="startDate" />
+        <input type="date" id="endDate" />
+
+        <button id="filterButton">Apply Filter</button>
+        <button id="exportButton">Export Data</button>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Legend -->
+    <div class="legend" id="legend">
+        <h4>Legend</h4>
+        <i style="background: red;"></i> Theft<br />
+        <i style="background: blue;"></i> Assault<br />
+        <i style="background: green;"></i> Burglary<br />
+        <i style="background: orange;"></i> Vandalism<br />
+        <i style="background: purple;"></i> Drug Offense<br />
+    </div>
+
+    <!-- Chart Container -->
+    <div id="chartContainer">
+        <canvas id="crimeChart"></canvas>
+    </div>
+
+    <!-- Footer with Creator Information -->
+    <div class="footer">
+        Created by JAED DELOSA
+    </div>
+
+    <!-- Leaflet and Chart.js -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([7.1907, 125.4553], 12); // Centered on Davao City
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+         // Comprehensive mock crime data for various barangays in Davao City
+         const crimeData = [
+           { type:'theft', severity:'major', location:[7.1907,125.4553], description:'Theft incident at Roxas Ave.', date:'2024-01-15'},
+           { type:'assault', severity:'minor', location:[7.2007,125.4603], description:'Assault incident at San Pedro St.', date:'2024-01-16'},
+           { type:'burglary', severity:'major', location:[7.1807,125.4503], description:'Burglary incident at J.P. Laurel Ave.', date:'2024-01-17'},
+           { type:'theft', severity:'minor', location:[7.2107,125.4703], description:'Theft incident at Quezon Blvd.', date:'2024-01-18'},
+           { type:'assault', severity:'major', location:[7.2207,125.4803], description:'Assault incident at C.P. Garcia Ave.', date:'2024-01-19'},
+           { type:'vandalism', severity:'minor', location:[7.2407,125.4903], description:'Vandalism incident at Bangkal.', date:'2024-01-20'},
+           { type:'drug_offense', severity:'major', location:[7.2607,125.5003], description:'Drug offense incident at Matina.', date:'2024-01-21'},
+           { type:'theft', severity:'major', location:[7.2807,125.5103], description:'Theft incident at Toril.', date:'2024-01-22'},
+           { type:'burglary', severity:'minor', location:[7.3007,125.5203], description:'Burglary incident at Agdao.', date:'2024-01-23'},
+
+           // Additional mock data for more barangays (example)
+           { type:'theft', severity:'major', location:[7.2901,125.5302], description:'Theft incident at Barangay A.', date:'2024-01-24'},
+           { type:'assault', severity:'minor', location:[7.2951,125.5402], description:'Assault incident at Barangay B.', date:'2024-01-25'},
+           { type:'burglary', severity:'major', location:[7.3001,125.5502], description:'Burglary incident at Barangay C.', date:'2024-01-26'},
+           
+           // Add more entries to cover all barangays...
+           // For example:
+           { type:"theft", severity:"minor", location:[7.3101,125.5602], description:"Theft incident at Barangay D.", date:"2024-01-27"},
+           { type:"assault", severity:"major", location:[7.3201,125.5702], description:"Assault incident at Barangay E.", date:"2024-01-28"},
+           // Continue adding as needed for all barangays...
+         ];
+
+         // Function to get marker color based on crime type
+         function getMarkerColor(type) {
+             switch (type) {
+                 case 'theft': return 'red';
+                 case 'assault': return 'blue';
+                 case 'burglary': return 'green';
+                 case 'vandalism': return 'orange';
+                 case 'drug_offense': return 'purple';
+                 default:return '#000';
+             }
+         }
+
+         // Function to add markers to the map
+         function addMarkers(data) {
+             data.forEach(crime => {
+                 const marker = L.circleMarker(crime.location,{
+                     radius :8,
+                     fillColor :getMarkerColor(crime.type),
+                     color:'#000',
+                     weight :1,
+                     opacity :1,
+                     fillOpacity :0.8
+                 }).addTo(map);
+                 marker.bindPopup(`<b>${crime.type}</b><br>${crime.description}<br>Date:${crime.date}`);
+             });
+             
+             updateChart(data);
+         }
+
+         // Initial markers
+         addMarkers(crimeData);
+
+         // Function to update chart with filtered data
+         function updateChart(data) {
+             const ctx = document.getElementById('crimeChart').getContext('2d');
+             const crimeCounts = {
+                 theft :0,
+                 assault :0,
+                 burglary :0,
+                 vandalism :0,
+                 drug_offense :0
+             };
+
+             data.forEach(crime => {
+                 if (crime.type === "theft") crimeCounts.theft++;
+                 else if (crime.type === "assault") crimeCounts.assault++;
+                 else if (crime.type === "burglary") crimeCounts.burglary++;
+                 else if (crime.type === "vandalism") crimeCounts.vandalism++;
+                 else if (crime.type === "drug_offense") crimeCounts.drug_offense++;
+             });
+
+             const chartData = {
+                 labels:['Theft','Assault','Burglary','Vandalism','Drug Offense'],
+                 datasets:[{
+                     label:'Number of Incidents',
+                     data:[crimeCounts.theft, crimeCounts.assault, crimeCounts.burglary, crimeCounts.vandalism, crimeCounts.drug_offense],
+                     backgroundColor:['rgba(255,99,132,0.2)','rgba(54,162,235,0.2)','rgba(75,192,192,0.2)', 'rgba(255,165,0,.2)', 'rgba(128,0,128,.2)'],
+                     borderColor:['rgba(255,99,132,.8)','rgba(54,162,235,.8)','rgba(75,192,192,.8)', 'rgba(255165,.8)', 'rgba(128,.8)'],
+                     borderWidth :1
+                 }]
+             };
+
+             if (window.crimeChart) window.crimeChart.destroy(); // Destroy existing chart if it exists
+
+             window.crimeChart = new Chart(ctx,{
+                 type:'bar',
+                 data : chartData,
+                 options:{
+                     scales:{
+                         y:{
+                             beginAtZero:true
+                         }
+                     }
+                 }
+             });
+         }
+
+         // Filter functionality
+         document.getElementById('filterButton').addEventListener('click', function() {
+             const selectedType = document.getElementById('crimeType').value;
+             const selectedSeverity = document.getElementById('severity').value;
+             const startDate = new Date(document.getElementById('startDate').value);
+             const endDate = new Date(document.getElementById('endDate').value);
+
+             // Clear existing markers
+             map.eachLayer(layer => {
+                 if (layer instanceof L.CircleMarker) {
+                     map.removeLayer(layer);
+                 }
+             });
+
+             // Filter and add new markers
+             const filteredData = crimeData.filter(crime => {
+                 const crimeDate = new Date(crime.date);
+                 const typeMatch = selectedType === "all" || crime.type === selectedType;
+                 const severityMatch = selectedSeverity === "all" || crime.severity === selectedSeverity;
+                 const dateMatch = (!startDate || crimeDate >= startDate) && (!endDate || crimeDate <= endDate);
+                 return typeMatch && severityMatch && dateMatch;
+             });
+             
+             addMarkers(filteredData);
+         });
+
+         // Export functionality (mock implementation)
+         document.getElementById('exportButton').addEventListener('click', function() {
+             const csvContent = "data:text/csv;charset=utf-8," 
+                 + "Type,Description,Location,Severity,Date\n"
+                 + crimeData.map(crime => `${crime.type},${crime.description},${crime.location.join(",")},${crime.severity},${crime.date}`).join("\n");
+
+             const encodedUri = encodeURI(csvContent);
+             const link = document.createElement("a");
+             link.setAttribute("href", encodedUri);
+             link.setAttribute("download", "crime_data.csv");
+             document.body.appendChild(link); // Required for Firefox
+
+             link.click();
+         });
+
+   </script>
+
+</body>
+</html>
