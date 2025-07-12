@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrimeWatch | Dark Ops Mode</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --danger: #ef4444;
+            --danger-dark: #dc2626;
+            --dark-0: #0a0a0a;
+            --dark-1: #111111;
+            --dark-2: #1a1a1a;
+            --dark-3: #252525;
+            --dark-4: #333333;
+            --light: #f8fafc;
+            --light-dim: #94a3b8;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--dark-0);
+            color: var(--light);
+            overflow: hidden;
+        }
+        
+        #map {
+            height: 100vh;
+            width: 100vw;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 0;
+            filter: brightness(0.8) contrast(1.1);
+        }
+        
+        .control-panel {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(10, 10, 10, 0.85);
+            padding: 20px;
+            border-radius: 12px;
+            width: 320px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--dark-4);
+            transition: all 0.3s ease;
+        }
+        
+        .control-panel:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.2);
+        }
+        
+        .panel-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--dark-4);
+        }
+        
+        .panel-header h2 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            background: linear-gradient(90deg, var(--primary), var(--danger));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .panel-header i {
+            margin-right: 12px;
+            font-size: 22px;
+            color: var(--primary);
+        }
+        
+        .crime-counter {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 18px;
+            margin-bottom: 20px;
+            text-align: center;
+            border: 1px solid var(--dark-4);
+            transition: all 0.3s ease;
+        }
+        
+        .crime-counter:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(239, 68, 68, 0.2);
+            border-color: var(--danger);
+        }
+        
+        .crime-count {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--danger);
+            margin-bottom: 5px;
+            text-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+        }
+        
+        .crime-label {
+            font-size: 14px;
+            color: var(--light-dim);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        
+        .filter-group {
+            margin-bottom: 18px;
+        }
+        
+        .filter-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--light-dim);
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        
+        .filter-select, .filter-date {
+            width: 100%;
+            padding: 12px 15px;
+            background: var(--dark-2);
+            border: 1px solid var(--dark-4);
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--light);
+            transition: all 0.3s ease;
+        }
+        
+        .filter-select:focus, .filter-date:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            background: var(--dark-3);
+        }
+        
+        .filter-select option {
+            background: var(--dark-1);
+            color: var(--light);
+        }
+        
+        .time-controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+        }
+        
+        .time-btn {
+            flex: 1;
+            padding: 10px;
+            background: var(--dark-3);
+            border: 1px solid var(--dark-4);
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--light-dim);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .time-btn:hover {
+            background: var(--dark-4);
+            color: var(--light);
+            border-color: var(--primary);
+        }
+        
+        .time-btn i {
+            margin-right: 5px;
+        }
+        
+        .btn-apply {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-top: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .btn-apply:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-apply i {
+            margin-right: 8px;
+        }
+        
+        /* Crime Markers */
+        .crime-marker {
+            background: var(--danger);
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            border: 2px solid white;
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.7);
+            position: relative;
+        }
+        
+        .crime-marker::after {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            border-radius: 50%;
+            border: 2px solid var(--danger);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(0.8); opacity: 0.7; }
+            70% { transform: scale(1.3); opacity: 0; }
+            100% { transform: scale(0.8); opacity: 0; }
+        }
+        
+        /* Popup Styles */
+        .leaflet-popup-content {
+            margin: 15px !important;
+            min-width: 200px;
+            background: var(--dark-2);
+            border-radius: 8px;
+            color: var(--light);
+        }
+        
+        .crime-popup {
+            font-family: inherit;
+        }
+        
+        .crime-popup h4 {
+            color: var(--primary);
+            font-size: 16px;
+            margin: 0 0 10px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--dark-4);
+        }
+        
+        .crime-popup p {
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        
+        .crime-popup .crime-type {
+            display: inline-block;
+            padding: 4px 10px;
+            background: var(--danger);
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .crime-popup-detail {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        
+        .crime-popup-detail i {
+            margin-right: 8px;
+            color: var(--primary);
+            width: 16px;
+            text-align: center;
+        }
+        
+        /* Loading Animation */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 10, 0.9);
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(59, 130, 246, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: var(--light);
+            font-size: 16px;
+            letter-spacing: 1px;
+        }
+        
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
+            background: var(--danger);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            transform: translateX(200%);
+            transition: transform 0.3s ease;
+            max-width: 300px;
+            display: none;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+            display: block;
+        }
+        
+        .notification i {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text">Initializing Crime Network...</div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification">
+        <i class="fas fa-skull-crossbones"></i>
+        <span id="notificationText">Crime data updated</span>
+    </div>
+
+    <!-- Main Control Panel -->
+    <div class="control-panel">
+        <div class="panel-header">
+            <i class="fas fa-map-marked-alt"></i>
+            <h2>CRIMEWATCH DARK OPS</h2>
+        </div>
+        
+        <!-- Crime Counter -->
+        <div class="crime-counter">
+            <div class="crime-count" id="crimeCount">0</div>
+            <div class="crime-label">Threats Detected</div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-group">
+            <label class="filter-label">Target Zone</label>
+            <select class="filter-select" id="citySelect">
+                <option value="all">All Zones</option>
+                <option value="davao" selected>Davao Sector</option>
+                <option value="manila">Manila Metro</option>
+                <option value="cebu">Cebu District</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label class="filter-label">Threat Type</label>
+            <select class="filter-select" id="crimeType">
+                <option value="all">All Threats</option>
+                <option value="burglary">Burglary</option>
+                <option value="assault">Assault</option>
+                <option value="theft">Theft</option>
+                <option value="homicide">Homicide</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label class="filter-label">Timeframe</label>
+            <input type="date" class="filter-date mb-2" id="startDate">
+            <input type="date" class="filter-date" id="endDate">
+        </div>
+
+        <!-- Time Controls -->
+        <div class="time-controls">
+            <button class="time-btn" id="last24h"><i class="fas fa-clock"></i> 24h</button>
+            <button class="time-btn" id="lastWeek"><i class="fas fa-calendar-week"></i> Week</button>
+            <button class="time-btn" id="lastMonth"><i class="fas fa-calendar-alt"></i> Month</button>
+        </div>
+
+        <!-- Apply Button -->
+        <button class="btn-apply" id="applyFilters">
+            <i class="fas fa-crosshairs"></i> Track Threats
+        </button>
+    </div>
+
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    
+    <!-- Font Awesome JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Show loading overlay initially
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const notification = document.getElementById('notification');
+            const notificationText = document.getElementById('notificationText');
+            
+            // Initialize Map with Dark Mode
+            const map = L.map('map', {
+                renderer: L.canvas(),
+                preferCanvas: true,
+                center: [7.1907, 125.4553],
+                zoom: 13,
+                zoomControl: false,
+                attributionControl: false
+            });
+
+            // Add Dark Satellite Layer
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Esri',
+                maxZoom: 18
+            }).addTo(map);
+
+            // Add Street Labels Layer
+            const streetLabels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Esri',
+                maxZoom: 18
+            }).addTo(map);
+
+            // Crime Data
+            let crimeData = [];
+            let markers = [];
+            
+            // Crime type colors
+            const crimeColors = {
+                burglary: '#ef4444',
+                assault: '#f97316',
+                theft: '#eab308',
+                homicide: '#dc2626'
+            };
+
+            // Load initial crime data
+            updateCrimeData();
+
+            // Update crime data function
+            function updateCrimeData() {
+                loadingOverlay.style.display = 'flex';
+                
+                // Simulate API call
+                setTimeout(() => {
+                    // Generate realistic mock data
+                    const cities = {
+                        davao: { lat: 7.1907, lng: 125.4553, radius: 0.1 },
+                        manila: { lat: 14.5995, lng: 120.9842, radius: 0.3 },
+                        cebu: { lat: 10.3157, lng: 123.8854, radius: 0.2 }
+                    };
+                    
+                    const crimeTypes = ['burglary', 'assault', 'theft', 'homicide'];
+                    const mockData = [];
+                    
+                    // Generate 50-100 random crimes
+                    const crimeCount = Math.floor(Math.random() * 50) + 50;
+                    
+                    for (let i = 0; i < crimeCount; i++) {
+                        const cityKeys = Object.keys(cities);
+                        const randomCity = cityKeys[Math.floor(Math.random() * cityKeys.length)];
+                        const city = cities[randomCity];
+                        
+                        // Generate random point around city center
+                        const angle = Math.random() * Math.PI * 2;
+                        const radius = Math.random() * city.radius;
+                        const lat = city.lat + radius * Math.cos(angle);
+                        const lng = city.lng + radius * Math.sin(angle);
+                        
+                        // Random date within last 30 days
+                        const daysAgo = Math.floor(Math.random() * 30);
+                        const date = new Date();
+                        date.setDate(date.getDate() - daysAgo);
+                        const dateStr = date.toISOString().split('T')[0];
+                        
+                        // Random crime type
+                        const type = crimeTypes[Math.floor(Math.random() * crimeTypes.length)];
+                        
+                        // Random severity (1-5)
+                        const severity = Math.floor(Math.random() * 5) + 1;
+                        
+                        mockData.push({
+                            lat,
+                            lng,
+                            type,
+                            city: randomCity,
+                            date: dateStr,
+                            severity
+                        });
+                    }
+                    
+                    crimeData = mockData;
+                    applyFilters();
+                    
+                    // Show notification
+                    notificationText.textContent = `${crimeData.length} new threats detected`;
+                    notification.classList.add('show');
+                    setTimeout(() => {
+                        notification.classList.remove('show');
+                    }, 3000);
+                    
+                    // Hide loading overlay
+                    loadingOverlay.style.display = 'none';
+                }, 1500);
+            }
+
+            // Marker Management
+            function updateMarkers(data) {
+                // Clear existing markers
+                markers.forEach(marker => map.removeLayer(marker));
+                markers = [];
+                
+                // Create markers for each crime
+                data.forEach(crime => {
+                    const marker = L.circleMarker([crime.lat, crime.lng], {
+                        radius: 6 + crime.severity,
+                        fillColor: crimeColors[crime.type] || '#ef4444',
+                        color: '#fff',
+                        weight: 1,
+                        fillOpacity: 0.9,
+                        className: 'crime-marker'
+                    }).bindPopup(`
+                        <div class="crime-popup">
+                            <h4>THREAT DETAILS</h4>
+                            <p><span class="crime-type" style="background-color: ${crimeColors[crime.type] || '#ef4444'}">${crime.type.toUpperCase()}</span></p>
+                            <div class="crime-popup-detail">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>${crime.city.toUpperCase()}</span>
+                            </div>
+                            <div class="crime-popup-detail">
+                                <i class="fas fa-calendar-day"></i>
+                                <span>${crime.date}</span>
+                            </div>
+                            <div class="crime-popup-detail">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>Severity: ${crime.severity}/5</span>
+                            </div>
+                        </div>
+                    `);
+                    
+                    // Add hover effects
+                    marker.on('mouseover', function() {
+                        this.setStyle({
+                            radius: 10 + crime.severity,
+                            fillOpacity: 1
+                        });
+                        this.openPopup();
+                    });
+                    
+                    marker.on('mouseout', function() {
+                        this.setStyle({
+                            radius: 6 + crime.severity,
+                            fillOpacity: 0.9
+                        });
+                    });
+                    
+                    marker.addTo(map);
+                    markers.push(marker);
+                });
+
+                // Update crime counter
+                document.getElementById('crimeCount').textContent = data.length;
+            }
+
+            // Filter Implementation
+            function applyFilters() {
+                const city = document.getElementById('citySelect').value;
+                const crimeType = document.getElementById('crimeType').value;
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+
+                const filtered = crimeData.filter(crime => {
+                    const cityMatch = city === 'all' || crime.city === city;
+                    const typeMatch = crimeType === 'all' || crime.type === crimeType;
+                    const dateMatch = (!startDate || crime.date >= startDate) && 
+                                    (!endDate || crime.date <= endDate);
+                    return cityMatch && typeMatch && dateMatch;
+                });
+
+                updateMarkers(filtered);
+                
+                // Auto-zoom to selected city if not "all"
+                if (city !== 'all') {
+                    const cityViews = {
+                        davao: { lat: 7.1907, lng: 125.4553, zoom: 13 },
+                        manila: { lat: 14.5995, lng: 120.9842, zoom: 12 },
+                        cebu: { lat: 10.3157, lng: 123.8854, zoom: 12 }
+                    };
+                    
+                    if (cityViews[city]) {
+                        map.flyTo([cityViews[city].lat, cityViews[city].lng], cityViews[city].zoom, {
+                            duration: 0.5
+                        });
+                    }
+                }
+            }
+
+            // Time Filter Shortcuts
+            document.getElementById('last24h').addEventListener('click', () => {
+                const today = new Date();
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+                
+                document.getElementById('startDate').valueAsDate = yesterday;
+                document.getElementById('endDate').valueAsDate = today;
+                applyFilters();
+            });
+            
+            document.getElementById('lastWeek').addEventListener('click', () => {
+                const today = new Date();
+                const lastWeek = new Date(today);
+                lastWeek.setDate(lastWeek.getDate() - 7);
+                
+                document.getElementById('startDate').valueAsDate = lastWeek;
+                document.getElementById('endDate').valueAsDate = today;
+                applyFilters();
+            });
+            
+            document.getElementById('lastMonth').addEventListener('click', () => {
+                const today = new Date();
+                const lastMonth = new Date(today);
+                lastMonth.setMonth(lastMonth.getMonth() - 1);
+                
+                document.getElementById('startDate').valueAsDate = lastMonth;
+                document.getElementById('endDate').valueAsDate = today;
+                applyFilters();
+            });
+
+            // Apply filters button
+            document.getElementById('applyFilters').addEventListener('click', applyFilters);
+
+            // Set default date range to last month
+            const today = new Date();
+            const lastMonth = new Date(today);
+            lastMonth.setMonth(lastMonth.getMonth() - 1);
+            
+            document.getElementById('startDate').valueAsDate = lastMonth;
+            document.getElementById('endDate').valueAsDate = today;
+
+            // Auto-refresh every 5 minutes
+            setInterval(updateCrimeData, 300000);
+        });
+    </script>
+</body>
+</html>
